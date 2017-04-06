@@ -35,10 +35,10 @@ def WriteGif(filename, movie) {
 
 }
 
-os.mkdir('vis/')
+if not os.path.exists("vis/"):
+	os.mkdir('vis/')
 WriteGif('vis/gen.gif', gen)
 WriteGif('vis/video.gif', video)
 WriteGif('vis/videomask.gif', torch.cmul(video, mask))
 WriteGif('vis/mask.gif', mask)
 #TODO: Save static image
-

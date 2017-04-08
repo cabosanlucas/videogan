@@ -3,7 +3,8 @@ import numpy as np
 from ops import*
 
 """
-TODO: 
+TODO:
+test
 1. load image, video
 2. loss funcion
 3. train

@@ -4,7 +4,7 @@ from ops import*
 
 """
 TODO:
-test
+test2
 1. load image, video
 2. loss funcion
 3. train

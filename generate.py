@@ -24,6 +24,13 @@ noise = tf.random_normal((opt['batchSize'], 100))
 #TODO: Run model to generate videos
 
 
+gen = 
+video = 
+mask = 
+static = 
+mask =
+
+
 def WriteGif(filename, movie) {
 	for i in range(1, movie.shape[3]):
 		#TODO: save generated imgs
@@ -41,4 +48,4 @@ WriteGif('vis/gen.gif', gen)
 WriteGif('vis/video.gif', video)
 WriteGif('vis/videomask.gif', torch.cmul(video, mask))
 WriteGif('vis/mask.gif', mask)
-#TODO: Save static image
+image.save("vis/static", "jpg")

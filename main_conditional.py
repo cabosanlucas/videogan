@@ -15,7 +15,7 @@ batch_size = 64
 frame_size = 64
 fine_size = 32
 opt_lambda = 10
-image = tf.truncated_normal(shape= [batch_size, 64,64,3])
+image = tf.truncated_normal(shape= [batch_size, 64,64,3]) #take first frame of the video
 video = tf.truncated_normal(shape = [batch_size, 32, 64, 64, 3]) #depth, height, width, dim
 #encode net(2d encoding)
 def encode_net(image):
@@ -116,10 +116,10 @@ def Build_Model(image, video):
     d_loss = d_real_loss + d_fake_loss
 
     g_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(d_fake_logits, tf.ones_like(d_fake_logits)))
+    reg_gen = tf.transpose(gen_dat, [0,4,1,2,3])
+    reg_frame = tf.transpose(video, [0,4,1,2,3])
+    reg_loss =  tf.reduce_mean(tf.abs(tf.subtract(reg_gen[0][0],reg_frame[0][0])))
     
-    print(d_real_loss.eval())
-    print(d_fake_loss)
-    print(g_loss)
 
 Build_Model(image,video)
     #save variables

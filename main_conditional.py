@@ -11,8 +11,11 @@ test2
 4. gpu implementation
 """
 #load data
-batch_size = 32
-image = tf.truncated_normal(shape= [batch_size, 64,64,3])
+batch_size = 64
+frame_size = 64
+fine_size = 32
+opt_lambda = 10
+image = tf.truncated_normal(shape= [batch_size, 64,64,3]) #take first frame of the video
 video = tf.truncated_normal(shape = [batch_size, 32, 64, 64, 3]) #depth, height, width, dim
 #encode net(2d encoding)
 def encode_net(image):
@@ -70,28 +73,55 @@ def mask_out(input_):
     return mask_net, gen_net
 
 #discriminator net (3d encoding)
-def discriminator_net(video):
-    #input = (batch, 32, 64, 64, 3)
-    #input_shape = video.get_shape().as_list()
-    v_dim = 128
-    h1 = lrelu(conv3d(video, v_dim, name = 'disc_h1_conv'))
-    h2 = lrelu(batch_norm(conv3d(h1, v_dim*2, name = 'disc_h2_conv')))
-    h3 = lrelu(batch_norm(conv3d(h2, v_dim*4, name = 'disc_h3_conv')))
-    h4 = lrelu(batch_norm(conv3d(h3, v_dim*8, name = 'disc_h4_conv'))) # batch, 2, 4, 4, 1024
-    h5 = conv3d(h4, 2, f_d = 2,f_h = 4,f_w=4,  name = 'disc_h5_conv')
-    h6 = conv3d(h5, 2, 1,2,2, name = 'disc_h6_conv') #batch, 1,1,1,2
-    return h6
+def discriminator_net(video, reuse = False):
+    with tf.variable_scope('discriminator') as scope:
+        if reuse:
+            scope.reuse_variables()
+        #input = (batch, 32, 64, 64, 3)
+        v_dim = 128
+        h1 = lrelu(conv3d(video, v_dim, name = 'disc_h1_conv'))
+        h2 = lrelu(batch_norm(conv3d(h1, v_dim*2, name = 'disc_h2_conv')))
+        h3 = lrelu(batch_norm(conv3d(h2, v_dim*4, name = 'disc_h3_conv')))
+        h4 = lrelu(batch_norm(conv3d(h3, v_dim*8, name = 'disc_h4_conv'))) # batch, 2, 4, 4, 1024
+        h5 = conv3d(h4, 2, f_d = 2,f_h = 4,f_w=4,  name = 'disc_h5_conv')
+        h6 = conv3d(h5, 2, 1,2,2, name = 'disc_h6_conv') #batch, 1,1,1,2
+        return h6
 
-#Generator
-enc = encode_net(image)
-back = static_net(enc)
-mask, fore = mask_out(net_video(enc))
+def Generator(image):
+    enc = encode_net(image)
+    back = static_net(enc)
+    mask, fore = mask_out(net_video(enc))
+    # dimension of back should be modified
+    netG = tf.add(tf.multiply(mask,fore), tf.multiply(tf.subtract(tf.ones_like(mask),mask),back[:,None,:,:,:]))
+    return netG
 
-netG = tf.add(tf.multiply(mask,fore), tf.multiply(tf.subtract(tf.ones_like(mask),mask),back))
-
-#Discriminator
-netD = discriminator_net(video)
+def Discriminator(video, reuse = False):
+    #Discriminator
+    netD = discriminator_net(video, reuse)
+    return netD
 
 #Build Model
+def Build_Model(image, video):
+    gen_dat = Generator(image)
+    d_fake_logits = Discriminator(gen_dat)
+    d_real_logits = Discriminator(video, reuse = True)
+    #L1 distance
+    #reg_loss = 
+    #loss function
+    """
+    paper uses different cross entropy: logsoftmax + ClassNLLCriterion
+    """
+    d_real_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(d_real_logits, tf.ones_like(d_real_logits)))
+    d_fake_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(d_fake_logits, tf.zeros_like(d_fake_logits)))
+    d_loss = d_real_loss + d_fake_loss
+
+    g_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(d_fake_logits, tf.ones_like(d_fake_logits)))
+    reg_gen = tf.transpose(gen_dat, [0,4,1,2,3])
+    reg_frame = tf.transpose(video, [0,4,1,2,3])
+    reg_loss =  tf.reduce_mean(tf.abs(tf.subtract(reg_gen[0][0],reg_frame[0][0])))
+    
+
+Build_Model(image,video)
+    #save variables
 
 #train

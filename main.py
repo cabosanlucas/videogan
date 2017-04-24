@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import utils
+from ops import *
 
 
 opt = {
@@ -35,15 +36,17 @@ opt = {
 #for k,v in pairs(opt) do opt[k] : tonumber(os.getenv(k)) or os.getenv(k) or opt[k] end
 print(opt)
 
-#TODO:: this
+#TODO::
 #if opt["gpu"] > 0:
 
+
 """ NEED TO LOAD DATA TO TENSORS """
-def static_net(tensor, iter):
+def static_net(tensor):
 
 	#may need to add batch size dimiension to tensor
 	#see https://www.tensorflow.org/api_docs/python/tf/contrib/layers/conv2d
 	# five convolutional layers with their channel counts
+	batchSize = 64
 	input_dim = 4 # 100
 	K = 512  # first convolutional layer output depth
 	L = 256  # second convolutional layer output depth
@@ -51,50 +54,22 @@ def static_net(tensor, iter):
 	N = 64   # fourth convolutional layer
 	O = 3	 # fifth layer
 
-	W1 = tf.Variable(tf.truncated_normal([4, 4, input_dim, K], stddev=0.1))  # 4x4 patch, 100 input channels, K output channels
-	B1 = tf.Variable(tf.constant(0.1, tf.float32, [K]))
-	W2 = tf.Variable(tf.truncated_normal([4, 4, K, L], stddev=0.1))
-	B2 = tf.Variable(tf.constant(0.1, tf.float32, [L]))
-	W3 = tf.Variable(tf.truncated_normal([4, 4, L, M], stddev=0.1))
-	B3 = tf.Variable(tf.constant(0.1, tf.float32, [M]))
-	W4 = tf.Variable(tf.truncated_normal([4, 4, M, N], stddev=0.1))
-	B4 = tf.Variable(tf.constant(0.1, tf.float32, [N]))
-	W5 = tf.Variable(tf.truncated_normal([4, 4, N, O], stddev=0.1))
-	B5 = tf.Variable(tf.constant(0.1, tf.float32, [O]))
+	input_shape = tensor.get_shape().as_list()
+	print input_shape
+	st_dim = 512
+	st_h = 4
+	st_w = 4
+	tf.Print(tensor, [tensor])
+	h1 = tf.nn.relu(batch_norm(deconv2d(tensor, [batchSize, st_h, st_w, st_dim], name = 'st_h1_deconv'))) #512
+	h2 = tf.nn.relu(batch_norm(deconv2d(h1, [batchSize, st_h*2, st_w*2, st_dim/2], name = 'st_h2_deconv'))) #256
+	h3 = tf.nn.relu(batch_norm(deconv2d(h2, [batchSize, st_h*4,st_w*4,st_dim/4], name = 'st_h3_deconv'))) #128
+	h4 = tf.nn.relu(batch_norm(deconv2d(h3, [batchSize, st_h*8,st_w*8,st_dim/8], name = 'st_h4_deconv'))) #64, 
+	h5 = tf.nn.tanh(batch_norm(deconv2d(h4, [batchSize, st_h*8,st_w*8, 3], name = 'st_h5_deconv'))) #32, 
+	return tf.Print(h5, [h5])
 
-	dropout =tf.constant(False)
-	#Layer 1
-	Y1l = tf.nn.conv2d(tensor, W1, strides=[1, 2, 2, 1], padding='SAME')
-	Y1bn, update_ema1 = utils.batchnorm(Y1l, dropout, iter, B1, convolutional=True)
-	Y1r = tf.nn.relu(Y1bn)
-
-	#layer 2
-	Y2l = tf.nn.conv2d(Y1r, W2, strides=[1, 2, 2, 1], padding='SAME')
-	Y2bn, update_ema2 = utils.batchnorm(Y2l, dropout, iter, B2, convolutional=True)
-	Y2r = tf.nn.relu(Y2bn)
-
-	#layer 3
-	Y3l = tf.nn.conv2d(Y2r, W3, strides=[1, 2, 2, 1], padding='SAME')
-	Y3bn, update_ema3 = utils.batchnorm(Y3l, dropout, iter, B3, convolutional=True)
-	Y3r = tf.nn.relu(Y3bn)
-
-	#layer 4
-	Y4l = tf.nn.conv2d(Y3r, W4, strides=[1, 2, 2, 1], padding='SAME')
-	Y4bn, update_ema3 = utils.batchnorm(Y4l, dropout, iter, B4, convolutional=True)
-	Y4r = tf.nn.relu(Y4bn)
-
-	#layer 4
-	Y5l = tf.nn.conv2d(Y4r, W5, strides=[1, 2, 2, 1], padding='SAME')
-	Y5bn, update_ema3 = utils.batchnorm(Y5l, dropout, iter, B5, convolutional=True)
-
-	# need reshape the output convolution tanh??
-	#YY = tf.reshape(y5r, shape=[-1, 7 * 7 * 0])
-	YY = tf.nn.tanh(Y5bn)
-
-	return tf.Print(YY, [YY])
 
 #TODO: see https://github.com/cvondrick/videogan/blob/master/main.lua line 92
-def net_video(tensor, iter):
+def net_video(tensor):
 	input_size = 4 #100
 	# four convolutional layers with their channel counts
 	K = 512  # first convolutional layer output depth
@@ -102,49 +77,36 @@ def net_video(tensor, iter):
 	M = 128  # third convolutional layer
 	N = 64   # fourth convolutional layer
 
-	W1 = tf.Variable(tf.truncated_normal([2, 4, 4, input_size, K], stddev=0.1))  # 4x4 patch, 100 input channels, K output channels
-	B1 = tf.Variable(tf.constant(0.1, tf.float32, [K]))
-	W2 = tf.Variable(tf.truncated_normal([4, 4, 4, K, L], stddev=0.1))
-	B2 = tf.Variable(tf.constant(0.1, tf.float32, [L]))
-	W3 = tf.Variable(tf.truncated_normal([4, 4, 4, L, M], stddev=0.1))
-	B3 = tf.Variable(tf.constant(0.1, tf.float32, [M]))
-	W4 = tf.Variable(tf.truncated_normal([4, 4, 4, M, N], stddev=0.1))
-	B4 = tf.Variable(tf.constant(0.1, tf.float32, [N]))
+	input_shape = tensor.get_shape().as_list()
+	print input_shape
+	net_h = input_shape[1]
+	net_w = input_shape[2]
+	net_d = 2
+	tensor = tf.reshape(tensor, [64, 1, net_h, net_w, 128])
 	
-	dropout = tf.constant(True)
-	#Layer 1
-	Y1l = tf.nn.conv3d(tensor, W1, strides=[1, 1, 1, 1, 1], padding='SAME')
-	Y1bn, update_ema1 = utils.batchnorm(Y1l, dropout, iter, B1, convolutional=True)
-	Y1r = tf.nn.relu(Y1bn)
+	h1 = tf.nn.relu(batch_norm(deconv3d(tensor, [64, net_d, net_h, net_w, K], name = 'm_net_h1_deconv'))) #100 -> 512
+	h2 = tf.nn.relu(batch_norm(deconv3d(h1, [64, net_d*2, net_h*2, net_w*2, L], name = 'm_net_h2_deconv'))) #512 -> 256
+	h3 = tf.nn.relu(batch_norm(deconv3d(h2, [64, net_d*4, net_h*4, net_w*4, M], name = 'm_net_h3_deconv'))) #256 ->128
+	h4 = tf.nn.relu(batch_norm(deconv3d(h3, [64, net_d*8, net_h*8, net_w*8, N], name = 'm_net_h4_deconv'))) #128 -> 64
+	# batch, 16, 32, 32, 64
+	return tf.Print(h4, [h4])
 
-	#layer 2
-	Y2l = tf.nn.conv3d(Y1r, W2, strides=[1, 2, 2, 2, 1], padding='SAME')
-	Y2bn, update_ema2 = utils.batchnorm(Y2l, dropout, iter, B2, convolutional=True)
-	Y2r = tf.nn.relu(Y2bn)
-
-	#layer 3
-	Y3l = tf.nn.conv3d(Y2r, W3, strides=[1, 2, 2, 2, 1], padding='SAME')
-	Y3bn, update_ema3 = utils.batchnorm(Y3l, dropout, iter, B3, convolutional=True)
-	Y3r = tf.nn.relu(Y3bn)
 	
-	#layer 4
-	Y4l = tf.nn.conv3d(Y3r, W4, strides=[1, 2, 2, 2, 1], padding='SAME')
-	Y4bn, update_ema3 = utils.batchnorm(Y4l, dropout, iter, B4, convolutional=True)
-	Y4r = tf.nn.relu(Y4bn)
-
-	return tf.Print(Y4r, [Y4r])
-
 def mask_net(tensor, L1):
-	W1 = tf.Variable(tf.truncated_normal([2, 4, 4, 4, 1], stddev=0.1))  # 4x4 patch, 100 input channels, K output channels
-	B1 = tf.Variable(tf.constant(0.1, tf.float32, [1]))
+	input_shape = tensor.get_shape().as_list()
+	print input_shape
+	net_h = input_shape[1]
+	net_w = input_shape[2]
+	net_d = input_shape[3]
 
-	mask_out = tf.nn.conv3d(tensor, W1, strides = [1, 2, 2, 2, 1], padding = "SAME")
+	mask_out = deconv3d(tensor, [64, net_d*2, net_h*2, net_w*2, 1], name = "mask_out_deconv")
+	
 	L1Penalty = tf.contrib.layers.l1_regularizer(L1)
 	return tf.nn.sigmoid(mask_out) #+ L1Penalty
 
 
 def gen_net(tensor):
-	return tf.nn.tanh(tf.layers.conv3d(inputs = tensor, filters = 3, kernel_size =  [4,4,4], strides = [2,2,2], padding = "SAME"))
+	return tf.nn.tanh(tf.layers.deconv3d(tensor, [64, 4, 4, 2, 3], name = "gen_net_deconv"))
 
 def disc_net(tensor):
 	# five convolutional layers with their channel counts
@@ -197,33 +159,32 @@ def disc_net(tensor):
 	#h4 = tf.layers.conv3d(inputs = h3, filters = 2, kernel_size = [2,4,4], strides = [1,1,1], padding = "VALID")
 	return tf.Print(Y5bn, [Y5bn])
 
-tensor = tf.placeholder(tf.float32, [None, 1024])
-# tensor = tf.constant([1.0, 3.0, 2.0, 3.0, 4.0,
-# 					 3.0, 2.0, 3.0, 3.0, 2.0, 
-# 					 3.0, 3.0, 2.0, 3.0, 3.0, 
-# 					 3.0, 3.0, 2.0, 3.0, 3.0, 
-# 					 3.0, 3.0, 2.0, 3.0, 3.0])
+tf.reset_default_graph()
 
-tensor = tf.reshape(tensor, [4, 4, 4, 4, 4])
-tensor2 = tf.reshape(tensor,[4, 4, 4, 4, 4])
+tensor = tf.truncated_normal(shape = [64, 64, 64, 2, 64])
+tensor2 = tf.truncated_normal( shape =[64, 64, 64, 2, 64])
 sess = tf.Session()
 
 # test flag for batch norm
 dropout = tf.placeholder(tf.bool)
 iter = tf.placeholder(tf.int32)
 #
-motion_net = tf.multiply(net_video(tensor, iter), utils.replicate(tf.squeeze(mask_net(tensor2, .0001)), sess, 3, 2))
+vnet = net_video(tensor)
+
+#motion_net = tf.multiply(vnet, utils.replicate(tf.squeeze(mask_net(vnet, .0001)), sess, 3, 2))
 
 tensor2d = tf.placeholder(tf.float32, [None, 1024])
 tensor2d = tf.reshape(tensor2d, [4,4,4,4])
 
-sta_part = tf.matmul(utils.replicate(static_net(tensor2d, iter), sess, opt["frameSize"], 3), #
-	utils.replicate(tf.add(tf.multiply(tf.squeeze(mask_net(tensor2, .0001)), -1), 1), sess, 3, 2))
+video = tf.truncated_normal(shape = [64, 32, 64, 64, 3]) #depth, height, width, dim
+
+#sta_part = tf.matmul(utils.replicate(static_net(tensor2d, iter), sess, opt["frameSize"], 3), #
+#	utils.replicate(tf.add(tf.multiply(tf.squeeze(mask_net(net_video(video), .0001)), -1), 1), sess, 32, 2))
 
 
 
 #net = tf.
 
-
-
+t = tf.image.decode_jpeg('converted_data/IMG_7491.JPG', 3, name = "import")
+tf.Print(t, [t])
 

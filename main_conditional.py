@@ -4,7 +4,11 @@ from util2 import*
 
 class VideoGAN_Conditional(object):
 
-    def __init__(self, sess, dataset='video2', batchSize=32, loadSize=128, fineSize=64, frameSize=32,lr=0.0002,lr_decay=1000,beta1=0.5, niter=100, gpu=1, data_root='/data/vision/torralba/crossmodal/flickr_videos/', data_list='data/vision/torralba/crossmodal/flicr_videos/scene_extract/lists-full/_b_beach.txt.train'):
+    def __init__(self, sess, dataset='video2', batchSize=32, 
+            loadSize=128, fineSize=64, frameSize=32,
+            lr=0.0002,lr_decay=1000,beta1=0.5, niter=100, gpu=1, 
+            data_root='/data/vision/torralba/crossmodal/flickr_videos/', 
+            data_list='data/vision/torralba/crossmodal/flicr_videos/scene_extract/lists-full/_b_beach.txt.train'):
         self.sess = sess
         self.batchSize = batchSize
         self.loadSize = loadSize
@@ -136,10 +140,23 @@ class VideoGAN_Conditional(object):
         g_optim = tf.train.AdamOptimizer(self.lr, beta1 = self.beta1).minimize(self.g_loss, var_list = self.g_vars)
 
         self.sess.run(tf.global_variables_initializer())
+        
+        #load data
+        counter = 1
+        for epochs in xrange(self.niter):
+            for idx in xrange(0, batch_idxs):
+                
+                batch_videos = tf.truncated_normal(shape = [self.batchSize, self.frameSize, self.fineSize, self.fineSize, 3])
+                batch_images = tf.truncated_normal(shape = [self.batchSize, self.fineSize, self.fineSize, 3])
+                #update discriminator
+                _, d_loss_curr = self.sess.run([d_optim, self.d_loss], feed_dict = {self.video: batch_videos, self.image: batch_images})
+                #update generator
+                _, g_loss_curr = self.sess.run([g_optim, self.g_loss], feed_dict = {self.image: batch_images})
 
-
-
-
+                if counter %100==0:
+                    print('epochs: '+epochs+' d_loss = ' + d_loss_curr + ' g_loss = ' + g_loss_curr)
+                    #make gif
+                counter +=1
 if __name__ == "__main__":
     sess = tf.Session()
     videogan_cond = VideoGAN_Conditional(sess)

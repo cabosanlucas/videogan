@@ -1,6 +1,7 @@
 import tensorflow as tf
 from ops import*
-from util2 import*
+from utils2 import*
+from loading_test import*
 
 class VideoGAN_Conditional(object):
 
@@ -47,7 +48,7 @@ class VideoGAN_Conditional(object):
         input_shape = input_.get_shape().as_list()
         st_dim = input_shape[-1]/2
         st_h = input_shape[1]*2
-        sh_w = input_shape[2]*2
+        st_w = input_shape[2]*2
         h1 = tf.nn.relu(batch_norm(deconv2d(input_, [self.batchSize, st_h, st_w, st_dim], name = 'g_st_h1_deconv')))
         h2 = tf.nn.relu(batch_norm(deconv2d(h1, [self.batchSize, st_h*2, st_w*2, st_dim/2], name = 'g_st_h2_deconv')))
         h3 = tf.nn.relu(batch_norm(deconv2d(h2, [self.batchSize, st_h*4, st_w*4, st_dim/4], name = 'g_st_h3_deconv')))
@@ -76,7 +77,7 @@ class VideoGAN_Conditional(object):
         m_w = g_w = input_shape[3]
 
         #mask net (batch, 32, 64, 64, 1)
-        mask_net = tf.nn.sigmoid(decov3d(input_, [self.batchSize, m_d*2, m_h*2, m_w*2, 1], name = 'g_mask_h1_deconv'))
+        mask_net = tf.nn.sigmoid(deconv3d(input_, [self.batchSize, m_d*2, m_h*2, m_w*2, 1], name = 'g_mask_h1_deconv'))
 
         #gen net (batch, 32, 64, 64, 3)
         gen_net = tf.tanh(deconv3d(input_, [self.batchSize, g_d*2, g_h*2, g_w*2, 3], name = 'g_gen_h1_deconv'))
@@ -97,14 +98,14 @@ class VideoGAN_Conditional(object):
             return h6
     
     def Generator(self, image):
-        enc = encode_net(image)
-        back = static_net(enc)
-        mask, fore = mask_out(net_video(enc))
+        enc = self.encode_net(image)
+        back = self.static_net(enc)
+        mask, fore = self.mask_out(self.net_video(enc))
         netG = tf.add(tf.multiply(mask,fore), tf.multiply(tf.subtract(tf.ones_like(mask),mask),back[:,None,:,:,:]))
         return netG
 
     def Discriminator(self, video, reuse = False):
-        netD = discriminator_net(video, reuse)
+        netD = self.discriminator_net(video, reuse)
         return netD
 
     def build_model(self):
@@ -112,13 +113,10 @@ class VideoGAN_Conditional(object):
         self.video = tf.placeholder(tf.float32, [self.batchSize, self.frameSize, self.fineSize, self.fineSize, 3], name = 'input_videos')
         self.image = tf.placeholder(tf.float32, [self.batchSize, self.fineSize, self.fineSize, 3], name = 'input_image')
         
-        self.gen_dat = Generator(self.image)
-        self.d_fake_logits = Discriminator(self.gen_dat)
-        self.d_real_logits = Discriminator(self.video, reuse = True)
+        self.gen_dat = self.Generator(self.image)
+        self.d_fake_logits = self.Discriminator(self.gen_dat)
+        self.d_real_logits = self.Discriminator(self.video, reuse = True)
 
-        """
-        paper uses different cross entropy: log softmax + ClassNLLCriterion
-        """
         self.d_real_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.d_real_logits, tf.ones_like(self.d_real_logits)))
         self.d_fake_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.d_fake_logits, tf.zeros_like(self.d_fake_logits)))
         self.d_loss = self.d_real_loss + self.d_fake_loss
@@ -146,8 +144,11 @@ class VideoGAN_Conditional(object):
         for epochs in xrange(self.niter):
             for idx in xrange(0, batch_idxs):
                 
-                batch_videos = tf.truncated_normal(shape = [self.batchSize, self.frameSize, self.fineSize, self.fineSize, 3])
-                batch_images = tf.truncated_normal(shape = [self.batchSize, self.fineSize, self.fineSize, 3])
+                batch_videos = get_batch(self.batchSize) #5d tensor
+                batch_images = batch_videos.transpose([1,0,2,3,4])
+                batch_images = batch_images[0] #take first frame
+                print(batch_videos.shape)
+                print(batch_images.shape)
                 #update discriminator
                 _, d_loss_curr = self.sess.run([d_optim, self.d_loss], feed_dict = {self.video: batch_videos, self.image: batch_images})
                 #update generator
@@ -157,6 +158,7 @@ class VideoGAN_Conditional(object):
                     print('epochs: '+epochs+' d_loss = ' + d_loss_curr + ' g_loss = ' + g_loss_curr)
                     #make gif
                 counter +=1
+
 if __name__ == "__main__":
     sess = tf.Session()
     videogan_cond = VideoGAN_Conditional(sess)

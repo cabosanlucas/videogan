@@ -52,7 +52,7 @@ class VideoGAN_Conditional(object):
         h1 = tf.nn.relu(batch_norm(deconv2d(input_, [self.batchSize, st_h, st_w, st_dim], name = 'g_st_h1_deconv')))
         h2 = tf.nn.relu(batch_norm(deconv2d(h1, [self.batchSize, st_h*2, st_w*2, st_dim/2], name = 'g_st_h2_deconv')))
         h3 = tf.nn.relu(batch_norm(deconv2d(h2, [self.batchSize, st_h*4, st_w*4, st_dim/4], name = 'g_st_h3_deconv')))
-        h4 = tf.nn.tanh(deconv2d(h3, [self.batchSize, st_h*8, st_w*8, st_dim/8], name = 'g_st_h4_deconv'))
+        h4 = tf.nn.tanh(deconv2d(h3, [self.batchSize, st_h*8, st_w*8, 3], name = 'g_st_h4_deconv'))
         return h4
 
     def net_video(self, input_):
@@ -123,7 +123,7 @@ class VideoGAN_Conditional(object):
 
         self.g_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(self.d_fake_logits, tf.ones_like(self.d_fake_logits)))
         
-        self.reg_gen =  tf.transpose(gen_dat, [4,0,1,2,3])
+        self.reg_gen =  tf.transpose(self.gen_dat, [4,0,1,2,3])
         self.reg_frame = tf.transpose(self.video, [4,0,1,2,3])
         self.reg_loss = tf.reduce_mean(tf.abs(tf.subtract(self.reg_gen[0], self.reg_frame[0])))
 
@@ -147,8 +147,6 @@ class VideoGAN_Conditional(object):
                 batch_videos = get_batch(self.batchSize) #5d tensor
                 batch_images = batch_videos.transpose([1,0,2,3,4])
                 batch_images = batch_images[0] #take first frame
-                print(batch_videos.shape)
-                print(batch_images.shape)
                 #update discriminator
                 _, d_loss_curr = self.sess.run([d_optim, self.d_loss], feed_dict = {self.video: batch_videos, self.image: batch_images})
                 #update generator
